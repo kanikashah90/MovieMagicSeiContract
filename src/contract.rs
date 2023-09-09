@@ -12,7 +12,7 @@ const CONTRACT_NAME: &str = "crates.io:hackathon-movie-magic-contract";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn instantiate(
+pub fn instantiate2(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
@@ -30,6 +30,18 @@ pub fn instantiate(
         .add_attribute("owner", info.sender)
         .add_attribute("count", msg.count.to_string()))
 }
+
+// 1. Update the instantiation logic that allows games as empty array
+
+// 2. Support the invocation message to create the game with atleast 1 player
+
+// 3. Support the invocation message so that another player can join the game with same name
+
+// 4. Invocation to start the game
+
+// 5. Invocation where adventure number, adventure vote of each player is sent
+
+// 6. Invocation to end the game
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
@@ -83,6 +95,7 @@ pub mod query {
         Ok(GetCountResponse { count: state.count })
     }
 }
+
 
 #[cfg(test)]
 mod tests {
