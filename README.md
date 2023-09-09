@@ -83,3 +83,53 @@ that have been published.
 Please replace this README file with information about your specific project. You can keep
 the `Developing.md` and `Publishing.md` files as useful referenced, but please set some
 proper description in the README.
+
+## Development
+
+### To build the contract
+
+1. Clean the cargo cache
+   `cargo clean`
+2. Get the dependencies
+   `cargo update`
+3. Additional dependency
+   `rustup target add wasm32-unknown-unknown`
+4. Build the contract
+   `cargo wasm`
+
+### Deploy the contract
+
+1. Add it in the store
+
+```
+../sei-chain/build/seid tx wasm store artifacts/hackathon_movie_magic_contract.wasm -y --from=kanika-compass-testnet --chain-id=atlantic-2 --gas=1800000 --fees=180000usei --broadcast-mode=block --node=https://sei-testnet-rpc.polkachu.com/
+```
+
+2. Fetch the code_id from the log events
+
+```
+logs:
+- events:
+  - attributes:
+    - key: action
+      value: /cosmwasm.wasm.v1.MsgStoreCode
+    - key: module
+      value: wasm
+    - key: sender
+      value: sei1jc78av795r4mlky5rhf5jrn4cmxppak59aetah
+    type: message
+  - attributes:
+    - key: code_id
+      value: "2789"
+    type: store_code
+  log: ""
+  msg_index: 0
+```
+
+3. Instantiate the contract
+
+```
+../sei-chain/build/seid tx wasm instantiate 2789 '{"count": 0}' --from=kanika-compass-testnet --broadcast-mode=block --label "movie-magic-hackathon" --chain-id=atlantic-2 --gas=1800000 --fees=180000usei --admin=sei1jc78av795r4mlky5rhf5jrn4cmxppak59aetah -y --node=https://sei-testnet-rpc.polkachu.com/
+```
+
+4. Contract Address `sei13tt4kqcjh4s02scwd56eqsy47kfagkq89whycmuejjzvpzmvnh0qll089u`
