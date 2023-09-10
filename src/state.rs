@@ -25,11 +25,13 @@ pub struct GameState {
     pub adventure_funds: u64, // Total funds to be distributed for the adventures
     pub initiated: bool,      // Flag to indicate if the game has been initiated
     pub started: bool,        // Flag to indicate if the game has been started
+    pub ended: bool,          // Flag to indicate if the game has been ended
     pub winner: String,       // Address of the winner
+    pub winning_reward: u64,  // Winning reward
     pub adventure_votes: Vec<HashMap<String, u32>>,
-    pub adventureWinners: Vec<Vec<String>>,
-    pub adventureRewards: Vec<u64>,
-    pub adventureWinningVotes: Vec<u32>,
+    pub adventure_winners: Vec<Vec<String>>,
+    pub adventure_rewards: Vec<u64>,
+    pub adventure_winning_votes: Vec<u32>,
     pub num_of_adventures: u32, // Number of adventures
 }
 

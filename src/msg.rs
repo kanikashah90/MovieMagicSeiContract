@@ -43,7 +43,9 @@ pub enum ExecuteMsg {
         name: String,
         adventure_number: u32,
     },
-    EndGame {},
+    EndGame {
+        name: String,
+    },
 }
 
 #[cw_serde]
