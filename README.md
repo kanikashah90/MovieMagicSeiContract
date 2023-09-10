@@ -102,7 +102,7 @@ proper description in the README.
 1. Add it in the store
 
 ```
-../sei-chain/build/seid tx wasm store artifacts/hackathon_movie_magic_contract.wasm -y --from=kanika-compass-testnet --chain-id=atlantic-2 --gas=1800000 --fees=180000usei --broadcast-mode=block --node=https://sei-testnet-rpc.polkachu.com/
+../sei-chain/build/seid tx wasm store artifacts/test_hackathon_contract.wasm -y --from=jason-compass-testnet --chain-id=atlantic-2 --gas=1800000 --fees=180000usei --broadcast-mode=block --node=https://sei-testnet-rpc.polkachu.com/
 ```
 
 2. Fetch the code_id from the log events
@@ -129,7 +129,44 @@ logs:
 3. Instantiate the contract
 
 ```
-../sei-chain/build/seid tx wasm instantiate 2789 '{"count": 0}' --from=kanika-compass-testnet --broadcast-mode=block --label "movie-magic-hackathon" --chain-id=atlantic-2 --gas=1800000 --fees=180000usei --admin=sei1jc78av795r4mlky5rhf5jrn4cmxppak59aetah -y --node=https://sei-testnet-rpc.polkachu.com/
+../sei-chain/build/seid tx wasm instantiate 2809 '{"count": 0}' --from=jason-compass-testnet --broadcast-mode=block --label "movie-magic-hackathon" --chain-id=atlantic-2 --gas=1800000 --fees=180000usei --admin=sei1jc78av795r4mlky5rhf5jrn4cmxppak59aetah -y --node=https://sei-testnet-rpc.polkachu.com/
 ```
 
-4. Contract Address `sei13tt4kqcjh4s02scwd56eqsy47kfagkq89whycmuejjzvpzmvnh0qll089u`
+4. Contract Address `sei1a8lj3zp4lxemelrycszjv3zhpaej5667pg0pl4z4euzq5llawk8qf5lf8j`, `sei15fn2mrlyl0f65hsspcm5zg48ynnwq8ywz54emskzyahxyx8eztgsqv952n`,
+   `sei1taekveesa6pr6u48n9ran8txtnuetfuvwx3vkkd9w0g52u7n8m3sy0s20f`,
+   `sei1f3ssmwuerjrh98stcxaypy88s42p0pnrqeeqhez3d207u7c5f77qydv6kz`,
+   `sei13a8ps4zg3jgn4gpdruquasx7tyq33truay2swygcrsvuc9y5jmuqu9s2q8`,
+   `sei1s945rj3hlys4v648st5swljetpfkdzsc6pqejq2yfvzqkushe74sxrj5rf`,
+   `sei1me77mpwu0dn0r0kssy03xydkhgt93h7qh47tamc0fxquyxemk0kqnp724x`,
+   `sei176uzaaryc8ujctcl2rhm043uxkj70lmlf4sjq9e9snchgrgq0nqqzvmsy2`
+
+5. Query data
+
+```
+../sei-chain/build/seid query wasm contract-state smart sei176uzaaryc8ujctcl2rhm043uxkj70lmlf4sjq9e9snchgrgq0nqqzvmsy2 '{"get_count":{}}' --node=https://sei-testnet-rpc.polkachu.com/
+```
+
+6. Execute
+   **Initialiaze a game**
+
+```
+../sei-chain/build/seid tx wasm execute sei176uzaaryc8ujctcl2rhm043uxkj70lmlf4sjq9e9snchgrgq0nqqzvmsy2 '{"init_game": {"name": "test-game-1", "player": "sei1jc78av795r4mlky5rhf5jrn4cmxppak59aetah", "game_stake": 20, "num_of_adventures":4}}' --from jason-compass-testnet --broadcast-mode=block --chain-id=atlantic-2 --gas=1800000 --fees=180000usei -y --node=https://sei-testnet-rpc.polkachu.com/
+```
+
+**New Player to join the game**
+
+```
+../sei-chain/build/seid tx wasm execute sei176uzaaryc8ujctcl2rhm043uxkj70lmlf4sjq9e9snchgrgq0nqqzvmsy2 '{"add_game_player": {"name": "test-game-1", "player": "sei1ya8q4u3tcuky2wpcxmlyxg8cpjunjnwn7eawg2", "game_stake": 20}}' --from jason-compass-testnet --broadcast-mode=block --chain-id=atlantic-2 --gas=1800000 --fees=180000usei -y --node=https://sei-testnet-rpc.polkachu.com/
+```
+
+**Start the game**
+
+```
+../sei-chain/build/seid tx wasm execute sei176uzaaryc8ujctcl2rhm043uxkj70lmlf4sjq9e9snchgrgq0nqqzvmsy2 '{"start_game": {"name": "test-game-1"}}' --from jason-compass-testnet --broadcast-mode=block --chain-id=atlantic-2 --gas=1800000 --fees=180000usei -y --node=https://sei-testnet-rpc.polkachu.com/
+```
+
+**Submit a vote**
+
+```
+../sei-chain/build/seid tx wasm execute sei176uzaaryc8ujctcl2rhm043uxkj70lmlf4sjq9e9snchgrgq0nqqzvmsy2 '{"vote_for_adventure": {"name": "test-game-1", "player":"sei1ya8q4u3tcuky2wpcxmlyxg8cpjunjnwn7eawg2", "vote": 1, "adventure_number": 0}}' --from jason-compass-testnet --broadcast-mode=block --chain-id=atlantic-2 --gas=1800000 --fees=180000usei -y --node=https://sei-testnet-rpc.polkachu.com/
+```

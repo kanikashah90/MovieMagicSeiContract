@@ -5,7 +5,7 @@ use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, GetCountResponse, InstantiateMsg, QueryMsg};
-use crate::state::{MovieMagicContractState, QueryResp, State, STATE};
+use crate::state::{GameState, MovieMagicContractState, QueryResp, State, STATE};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:hackathon-movie-magic-contract";
@@ -48,7 +48,7 @@ pub fn instantiate(
         owner: info.sender.clone(),
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    // STATE.save(deps.storage, &state)?;
+    STATE.save(deps.storage, &state)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -60,9 +60,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     // match msg {
     //     QueryMsg::GetCount {} => to_binary(&query::count(deps)?),
     // }
-    let resp = QueryResp {
-        message: "Hello World".to_owned(),
-    };
+    // let resp = QueryResp {
+    //     message: "Hello World".to_owned(),
+    // };
+
+    let resp: MovieMagicContractState = STATE.load(deps.storage)?;
 
     to_binary(&resp)
 }
@@ -76,6 +78,213 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 // 5. Invocation where adventure number, adventure vote of each player is sent
 
 // 6. Invocation to end the game
+
+#[entry_point]
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+    use ExecuteMsg::*;
+
+    match msg {
+        InitGame {
+            name,
+            player,
+            num_of_adventures,
+            game_stake,
+        } => exec::init_game(deps, name, player, num_of_adventures, game_stake),
+        AddGamePlayer {
+            name,
+            player,
+            game_stake,
+        } => exec::add_player(deps, name, player, game_stake),
+        StartGame { name } => exec::start_game(deps, name),
+        VoteForAdventure {
+            name,
+            player,
+            adventure_number,
+            vote,
+        } => exec::vote_for_adventure(deps, name, player, vote, adventure_number),
+        GameAdventureStop { name, votes } => todo!(),
+        EndGame {} => todo!(),
+    }
+}
+
+mod exec {
+    use std::collections::HashMap;
+
+    use cosmwasm_std::StdError;
+
+    use crate::msg::GamePlayerVote;
+
+    use super::*;
+
+    pub fn init_game(
+        deps: DepsMut,
+        name: String,
+        player: String,
+        num_of_adventures: u32,
+        game_stake: u64,
+    ) -> StdResult<Response> {
+        let mut curr_games = STATE.load(deps.storage)?;
+        let mut games = curr_games.games;
+        let new_game = GameState {
+            name: name.clone(),
+            players: vec![deps.api.addr_validate(&player)?.to_string()],
+            total_funds: game_stake,
+            adventure_funds: 0,
+            initiated: true,
+            started: false,
+            winner: "".to_string(),
+            adventure_votes: vec![],
+            num_of_adventures: num_of_adventures,
+        };
+
+        games.push(new_game);
+        curr_games.games = games;
+
+        STATE.save(deps.storage, &curr_games)?;
+
+        Ok(Response::new())
+    }
+
+    pub fn add_player(
+        deps: DepsMut,
+        name: String,
+        player: String,
+        game_stake: u64,
+    ) -> StdResult<Response> {
+        let mut curr_games = STATE.load(deps.storage)?;
+        let game_find_result = curr_games.games.iter_mut().find(|game| game.name == name);
+
+        match game_find_result {
+            Some(game) => {
+                // Make sure the player is not already part of the game
+                // Disable the below check after testing
+                // if !game.players.contains(&player) {
+                //     return Err(StdError::generic_err(
+                //         "This player is already part of the game.",
+                //     ));
+                // }
+                // Add the player to the game
+                game.players
+                    .push(deps.api.addr_validate(&player)?.to_string());
+                // Add the funds from the player to the game
+                game.total_funds += game_stake;
+            }
+            None => {
+                return Err(StdError::generic_err("Game not found"));
+            }
+        }
+
+        STATE.save(deps.storage, &curr_games)?;
+
+        Ok(Response::new())
+    }
+
+    pub fn start_game(deps: DepsMut, name: String) -> StdResult<Response> {
+        let mut curr_games: MovieMagicContractState = STATE.load(deps.storage)?;
+
+        // Make sure there non zero about staked in the game pool
+
+        let game_find_result = curr_games.games.iter_mut().find(|game| game.name == name);
+
+        match game_find_result {
+            Some(game) => {
+                if (game.total_funds == 0) || (game.players.len() < 2) {
+                    return Err(StdError::generic_err(
+                        "Game cannot be started with less than 2 players or zero funds.",
+                    ));
+                } else {
+                    game.started = true;
+                    // game.adventure_funds = ((80 * game.total_funds) / 100) as u64;
+                    STATE.save(deps.storage, &curr_games)?;
+                    Ok(Response::new())
+                }
+            }
+            None => {
+                return Err(StdError::generic_err("Game not found"));
+            }
+        }
+    }
+
+    pub fn vote_for_adventure(
+        deps: DepsMut,
+        name: String,
+        player: String,
+        vote: u32,
+        adventure_number: u32,
+    ) -> StdResult<Response> {
+        let mut curr_games = STATE.load(deps.storage)?;
+
+        let game_find_result = curr_games.games.iter_mut().find(|game| game.name == name);
+
+        match game_find_result {
+            Some(game) => {
+                // Make sure the player is part of the game
+                if !game.players.contains(&player) {
+                    return Err(StdError::generic_err(
+                        "This player is not part of the game.",
+                    ));
+                }
+                // Make sure the game has been started
+                if !game.started {
+                    return Err(StdError::generic_err("Game has not been started yet."));
+                }
+                if (adventure_number < (game.adventure_votes.len() as u32)) {
+                    // Add the vote of the player to the adventure
+                    game.adventure_votes[adventure_number as usize].insert(player, vote);
+                } else if (adventure_number == (game.adventure_votes.len() as u32)) {
+                    let adventure_vote_hash_map: HashMap<String, u32> = HashMap::new();
+                    game.adventure_votes.push(adventure_vote_hash_map);
+                    // Add the vote of the player to the adventure
+                    game.adventure_votes[adventure_number as usize].insert(player, vote);
+                } else {
+                    return Err(StdError::generic_err(
+                        "Voting has not started for this adventure.",
+                    ));
+                }
+            }
+            None => {
+                return Err(StdError::generic_err("Game not found"));
+            }
+        }
+
+        STATE.save(deps.storage, &curr_games)?;
+
+        Ok(Response::new())
+    }
+
+    // pub fn game_adventure_stop(
+    //     deps: DepsMut,
+    //     name: String,
+    //     votes: Vec<GamePlayerVote>,
+    // ) -> StdResult<Response> {
+    //     let mut curr_games = STATE.load(deps.storage)?;
+
+    //     let game_find_result = curr_games.games.iter_mut().find(|game| game.name == name);
+
+    //     match game_find_result {
+    //         Some(game) => {
+    //             // Create a map of vote labels to player
+    //             let mut vote_label_to_player: HashMap<u32, Vec<String>> = HashMap::new();
+    //             for player_vote in &votes {
+    //                 if vote_label_to_player.contains_key(&player_vote.vote) {
+    //                     let mut players = vote_label_to_player.get_mut(&player_vote.vote).unwrap();
+    //                     players.push(player_vote.player.clone());
+    //                 } else {
+    //                     vote_label_to_player
+    //                         .insert(player_vote.vote, vec![player_vote.player.clone()]);
+    //                 }
+    //             }
+    //         }
+    //         None => {
+    //             return Err(StdError::generic_err("Game not found"));
+    //         }
+    //     }
+
+    //     STATE.save(deps.storage, &curr_games)?;
+
+    //     Ok(Response::new())
+    // }
+}
 
 // #[cfg_attr(not(feature = "library"), entry_point)]
 // pub fn execute(

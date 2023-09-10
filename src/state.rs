@@ -22,9 +22,12 @@ pub struct GameState {
     pub name: String,         // Name of the game
     pub players: Vec<String>, // Store player addresses
     pub total_funds: u64,     // Total funds collected for the game
-    pub active: bool,         // Flag to indicate if the game is active
+    pub adventure_funds: u64, // Total funds to be distributed for the adventures
+    pub initiated: bool,      // Flag to indicate if the game has been initiated
+    pub started: bool,        // Flag to indicate if the game has been started
     pub winner: String,       // Address of the winner
-    pub adventure_votes: Vec<AdventureState>,
+    pub adventure_votes: Vec<HashMap<String, u32>>,
+    pub num_of_adventures: u32, // Number of adventures
 }
 
 // Define the state of all the games
