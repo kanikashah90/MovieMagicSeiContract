@@ -102,7 +102,10 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             adventure_number,
             vote,
         } => exec::vote_for_adventure(deps, name, player, vote, adventure_number),
-        GameAdventureStop { name, votes } => todo!(),
+        GameAdventureStop {
+            name,
+            adventure_number,
+        } => exec::game_adventure_stop(deps, name, adventure_number),
         EndGame {} => todo!(),
     }
 }
@@ -135,6 +138,9 @@ mod exec {
             winner: "".to_string(),
             adventure_votes: vec![],
             num_of_adventures: num_of_adventures,
+            adventureWinners: vec![],
+            adventureRewards: vec![],
+            adventureWinningVotes: vec![],
         };
 
         games.push(new_game);
@@ -194,7 +200,7 @@ mod exec {
                     ));
                 } else {
                     game.started = true;
-                    // game.adventure_funds = ((80 * game.total_funds) / 100) as u64;
+                    game.adventure_funds = ((80 * game.total_funds) / 100) as u64;
                     STATE.save(deps.storage, &curr_games)?;
                     Ok(Response::new())
                 }
@@ -252,38 +258,80 @@ mod exec {
         Ok(Response::new())
     }
 
-    // pub fn game_adventure_stop(
-    //     deps: DepsMut,
-    //     name: String,
-    //     votes: Vec<GamePlayerVote>,
-    // ) -> StdResult<Response> {
-    //     let mut curr_games = STATE.load(deps.storage)?;
+    pub fn game_adventure_stop(
+        deps: DepsMut,
+        name: String,
+        adventure_stop_number: u32,
+    ) -> StdResult<Response> {
+        let mut curr_games = STATE.load(deps.storage)?;
 
-    //     let game_find_result = curr_games.games.iter_mut().find(|game| game.name == name);
+        let game_find_result = curr_games.games.iter_mut().find(|game| game.name == name);
 
-    //     match game_find_result {
-    //         Some(game) => {
-    //             // Create a map of vote labels to player
-    //             let mut vote_label_to_player: HashMap<u32, Vec<String>> = HashMap::new();
-    //             for player_vote in &votes {
-    //                 if vote_label_to_player.contains_key(&player_vote.vote) {
-    //                     let mut players = vote_label_to_player.get_mut(&player_vote.vote).unwrap();
-    //                     players.push(player_vote.player.clone());
-    //                 } else {
-    //                     vote_label_to_player
-    //                         .insert(player_vote.vote, vec![player_vote.player.clone()]);
-    //                 }
-    //             }
-    //         }
-    //         None => {
-    //             return Err(StdError::generic_err("Game not found"));
-    //         }
-    //     }
+        match game_find_result {
+            Some(game) => {
+                // Get the adventure votes
+                let adventure_votes = game.adventure_votes.get(adventure_stop_number as usize);
+                let adventure_votes_unwrapped = adventure_votes.unwrap();
+                // game.adventure_votes[adventure_stop_number as usize];
 
-    //     STATE.save(deps.storage, &curr_games)?;
+                let mut votes_count_map: HashMap<u32, Vec<String>> = HashMap::new();
 
-    //     Ok(Response::new())
-    // }
+                // Generate map to track who votes for given options
+                for (player, vote) in adventure_votes_unwrapped.iter() {
+                    if (votes_count_map.contains_key(vote)) {
+                        let vec_ref = votes_count_map.get_mut(vote);
+                        match vec_ref {
+                            Some(vec) => {
+                                vec.push(player.clone());
+                            }
+                            None => {
+                                return Err(StdError::generic_err("Error in counting votes"));
+                            }
+                        }
+                    } else {
+                        votes_count_map.insert(vote.clone(), vec![player.clone()]);
+                    }
+                }
+
+                let mut vote_count_opt1: u32 = 0;
+                let mut vote_count_opt2: u32 = 0;
+
+                // Count the number of votes given to each candidate option
+                for (vote, players) in votes_count_map.iter() {
+                    if (*vote == 1) {
+                        vote_count_opt1 = players.len() as u32;
+                    } else if (*vote == 2) {
+                        vote_count_opt2 = players.len() as u32;
+                    }
+                }
+
+                if (vote_count_opt1 > vote_count_opt2) {
+                    // Calculate the reward amount for each player
+                    let reward_amound = ((game.adventure_funds / (game.num_of_adventures as u64))
+                        / (vote_count_opt1 as u64)) as u64;
+                    game.adventureWinningVotes.push(vote_count_opt1);
+                    game.adventureWinners
+                        .push(votes_count_map.get(&1).unwrap().clone());
+                    game.adventureRewards.push(reward_amound);
+                } else {
+                    // Calculate the reward amount for each player
+                    let reward_amound = ((game.adventure_funds / (game.num_of_adventures as u64))
+                        / (vote_count_opt2 as u64)) as u64;
+                    game.adventureWinningVotes.push(vote_count_opt2);
+                    game.adventureWinners
+                        .push(votes_count_map.get(&2).unwrap().clone());
+                    game.adventureRewards.push(reward_amound);
+                }
+            }
+            None => {
+                return Err(StdError::generic_err("Game not found"));
+            }
+        }
+
+        STATE.save(deps.storage, &curr_games)?;
+
+        Ok(Response::new())
+    }
 }
 
 // #[cfg_attr(not(feature = "library"), entry_point)]

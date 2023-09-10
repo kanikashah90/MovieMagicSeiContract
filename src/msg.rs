@@ -41,7 +41,7 @@ pub enum ExecuteMsg {
     },
     GameAdventureStop {
         name: String,
-        votes: Vec<GamePlayerVote>,
+        adventure_number: u32,
     },
     EndGame {},
 }

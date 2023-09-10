@@ -27,6 +27,9 @@ pub struct GameState {
     pub started: bool,        // Flag to indicate if the game has been started
     pub winner: String,       // Address of the winner
     pub adventure_votes: Vec<HashMap<String, u32>>,
+    pub adventureWinners: Vec<Vec<String>>,
+    pub adventureRewards: Vec<u64>,
+    pub adventureWinningVotes: Vec<u32>,
     pub num_of_adventures: u32, // Number of adventures
 }
 
