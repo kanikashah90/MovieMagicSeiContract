@@ -106,7 +106,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             name,
             adventure_number,
         } => exec::game_adventure_stop(deps, name, adventure_number),
-        EndGame {} => todo!(),
+        EndGame { name } => exec::game_end(deps, name),
     }
 }
 
@@ -114,8 +114,6 @@ mod exec {
     use std::collections::HashMap;
 
     use cosmwasm_std::StdError;
-
-    use crate::msg::GamePlayerVote;
 
     use super::*;
 
@@ -135,12 +133,14 @@ mod exec {
             adventure_funds: 0,
             initiated: true,
             started: false,
+            ended: false,
             winner: "".to_string(),
+            winning_reward: 0,
             adventure_votes: vec![],
             num_of_adventures: num_of_adventures,
-            adventureWinners: vec![],
-            adventureRewards: vec![],
-            adventureWinningVotes: vec![],
+            adventure_winners: vec![],
+            adventure_rewards: vec![],
+            adventure_winning_votes: vec![],
         };
 
         games.push(new_game);
@@ -309,18 +309,18 @@ mod exec {
                     // Calculate the reward amount for each player
                     let reward_amound = ((game.adventure_funds / (game.num_of_adventures as u64))
                         / (vote_count_opt1 as u64)) as u64;
-                    game.adventureWinningVotes.push(vote_count_opt1);
-                    game.adventureWinners
+                    game.adventure_winning_votes.push(vote_count_opt1);
+                    game.adventure_winners
                         .push(votes_count_map.get(&1).unwrap().clone());
-                    game.adventureRewards.push(reward_amound);
+                    game.adventure_rewards.push(reward_amound);
                 } else {
                     // Calculate the reward amount for each player
                     let reward_amound = ((game.adventure_funds / (game.num_of_adventures as u64))
                         / (vote_count_opt2 as u64)) as u64;
-                    game.adventureWinningVotes.push(vote_count_opt2);
-                    game.adventureWinners
+                    game.adventure_winning_votes.push(vote_count_opt2);
+                    game.adventure_winners
                         .push(votes_count_map.get(&2).unwrap().clone());
-                    game.adventureRewards.push(reward_amound);
+                    game.adventure_rewards.push(reward_amound);
                 }
             }
             None => {
@@ -332,121 +332,56 @@ mod exec {
 
         Ok(Response::new())
     }
+
+    pub fn game_end(deps: DepsMut, name: String) -> StdResult<Response> {
+        let mut curr_games = STATE.load(deps.storage)?;
+
+        let game_find_result = curr_games.games.iter_mut().find(|game| game.name == name);
+
+        match game_find_result {
+            Some(game) => {
+                // Make sure the game has been started
+                if !game.started {
+                    return Err(StdError::generic_err("Game has not been started yet."));
+                }
+
+                let advernture_winners_for_adventure = game.adventure_winners.clone();
+
+                // Compute the overall winner of the game
+
+                // 1. Flatten the adventure winners
+                let winners_across_adventures: Vec<String> = advernture_winners_for_adventure
+                    .into_iter()
+                    .flatten()
+                    .collect();
+
+                // 2. Create hash map of each player and their winning count
+                let mut player_winning_count: HashMap<String, u32> = HashMap::new();
+                for player in winners_across_adventures {
+                    *player_winning_count.entry(player).or_default() += 1;
+                }
+
+                // 3. Get the player with the highest winning count
+                let winning_player = (player_winning_count
+                    .into_iter()
+                    .max_by_key(|(_, v)| *v)
+                    .map(|(k, _)| k))
+                .unwrap();
+
+                game.winner = winning_player;
+
+                game.winning_reward = ((20 * game.total_funds) / 100) as u64;
+
+                // Mark the game as ended
+                game.ended = true;
+            }
+            None => {
+                return Err(StdError::generic_err("Game not found"));
+            }
+        }
+
+        STATE.save(deps.storage, &curr_games)?;
+
+        Ok(Response::new())
+    }
 }
-
-// #[cfg_attr(not(feature = "library"), entry_point)]
-// pub fn execute(
-//     deps: DepsMut,
-//     _env: Env,
-//     info: MessageInfo,
-//     msg: ExecuteMsg,
-// ) -> Result<Response, ContractError> {
-//     match msg {
-//         ExecuteMsg::Increment {} => execute::increment(deps),
-//         ExecuteMsg::Reset { count } => execute::reset(deps, info, count),
-//     }
-// }
-
-// pub mod execute {
-//     use super::*;
-
-//     pub fn increment(deps: DepsMut) -> Result<Response, ContractError> {
-//         STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-//             state.count += 1;
-//             Ok(state)
-//         })?;
-
-//         Ok(Response::new().add_attribute("action", "increment"))
-//     }
-
-//     pub fn reset(deps: DepsMut, info: MessageInfo, count: i32) -> Result<Response, ContractError> {
-//         STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-//             if info.sender != state.owner {
-//                 return Err(ContractError::Unauthorized {});
-//             }
-//             state.count = count;
-//             Ok(state)
-//         })?;
-//         Ok(Response::new().add_attribute("action", "reset"))
-//     }
-// }
-
-// pub mod query {
-//     use super::*;
-
-//     pub fn count(deps: Deps) -> StdResult<GetCountResponse> {
-//         let state = STATE.load(deps.storage)?;
-//         Ok(GetCountResponse { games_count: state.games.len() })
-//     }
-// }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-//     use cosmwasm_std::{coins, from_binary};
-
-//     #[test]
-//     fn proper_initialization() {
-//         let mut deps = mock_dependencies();
-
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(1000, "earth"));
-
-//         // we can just call .unwrap() to assert this was a success
-//         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-//         assert_eq!(0, res.messages.len());
-
-//         // it worked, let's query the state
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: GetCountResponse = from_binary(&res).unwrap();
-//         assert_eq!(17, value.count);
-//     }
-
-//     #[test]
-//     fn increment() {
-//         let mut deps = mock_dependencies();
-
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(2, "token"));
-//         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-//         // beneficiary can release it
-//         let info = mock_info("anyone", &coins(2, "token"));
-//         let msg = ExecuteMsg::Increment {};
-//         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-//         // should increase counter by 1
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: GetCountResponse = from_binary(&res).unwrap();
-//         assert_eq!(18, value.count);
-//     }
-
-//     #[test]
-//     fn reset() {
-//         let mut deps = mock_dependencies();
-
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(2, "token"));
-//         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-//         // beneficiary can release it
-//         let unauth_info = mock_info("anyone", &coins(2, "token"));
-//         let msg = ExecuteMsg::Reset { count: 5 };
-//         let res = execute(deps.as_mut(), mock_env(), unauth_info, msg);
-//         match res {
-//             Err(ContractError::Unauthorized {}) => {}
-//             _ => panic!("Must return unauthorized error"),
-//         }
-
-//         // only the original creator can reset the counter
-//         let auth_info = mock_info("creator", &coins(2, "token"));
-//         let msg = ExecuteMsg::Reset { count: 5 };
-//         let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
-
-//         // should now be 5
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: GetCountResponse = from_binary(&res).unwrap();
-//         assert_eq!(5, value.count);
-//     }
-// }

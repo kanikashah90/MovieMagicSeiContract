@@ -1,6 +1,6 @@
 [package]
-name = "hackathon-movie-magic-contract"
-version = "0.1.0"
+name = "test-hackathon-contract"
+version = "0.3.0"
 authors = ["Kanika Shah <kanika@trmlabs.com>"]
 edition = "2021"
 
